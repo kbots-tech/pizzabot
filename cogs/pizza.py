@@ -16,16 +16,28 @@ class BotCommands(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.bot.remove_command('help')
 
-    @commands.command(
-        name="example",  # This is the name of the command
-        brief="This command returns an example message",  # This is a short description of the command
-        aliases=['exam', 'ex']  # These are alternate ways to summon the command
-    )
-    # This is the minimum for setting up a command, it takes in no arguments and
-    # returns whatever you choose with no additional user input
-    async def example(self, ctx):
-        await ctx.send('Hello There, this is an example command')
+    @commands.command()
+    async def help(self, ctx):
+        embed = discord.Embed(
+            title='Help Command',
+            description="This bot is still in beta but WILL ACTUALLY ORDER FROM DOMINO'S IF YOU ACCEPT AN ORDER"
+            )
+        embed.add_field(name='User Info',
+                        value='User info is NOT saved and only cash orders can be made for security reasons.',
+                        inline=False)
+        embed.add_field(
+            name='The d.order command',
+            value="""
+                The order command will first DM you for your address and other info needed for an order, after that return to the page to add items to your order.
+                Use ⬅️ and  ➡️ to navivgate a page at a time.  The other emojis will jump to the page of the category matching the image. Use the green check to finish 
+                your order and use the red X to cancel.
+                """
+        )
+
+        embed.add_field(name="Number of guilds", value=str(len(self.bot.guilds)), inline=False)
+        await ctx.send(embed=embed)
 
     # noinspection PyTypeChecker
     @commands.command(
@@ -34,90 +46,59 @@ class BotCommands(commands.Cog):
     async def order(self, ctx):
 
         message = await ctx.send(ctx.author.mention, embed=discord.Embed(
-            title='Please Check Your DMs to supply address and name info'
+            title='Please Check Your DMs to supply address and name info',
+            color=0xde2939
         ))
 
-        def check(m):
-            return ctx.author.id == m.author.id and m.channel == ctx.author.dm_channel
-        while True:
-            await ctx.author.send(
-                embed=discord.Embed(
-                    title="What is your first name?"))
-            reply = (await self.bot.wait_for('message', check=check))
-            f_name = reply.content
+        if ctx.author.id != 000000:
+            while True:
+                try:
+                    f_name = await self.answer(ctx, "What is your first name?", 500)
+                    l_name = await self.answer(ctx, "What is your last name?", 500)
+                    email = await self.answer(ctx, "What is your email?", 500)
+                    phone = await self.answer(ctx, "What is your phone number?", 500)
+                    street = await self.answer(ctx, "What is your street address?", 500)
+                    city = await self.answer(ctx, "What is your city?", 500)
+                    state = await self.answer(ctx, "What is your state?", 500)
+                    zip_code = await self.answer(ctx, "What is your zip code?", 500)
+                except TimeoutError:
+                    await ctx.author.send(embed=discord.Embed(title='Order Creation has timed out! Please start over'))
 
-            await ctx.author.send(
-                embed=discord.Embed(
-                    title="What is your last name?"))
-            reply = (await self.bot.wait_for('message', check=check))
-            l_name = reply.content
+                embed = discord.Embed(title='Please verify your info.')
+                embed.add_field(name='Name', value=f"{f_name} {l_name}", inline=False)
+                embed.add_field(name='Email', value=email, inline=True)
+                embed.add_field(name='Phone', value=phone, inline=True)
+                embed.add_field(name='Street Address', value=street, inline=False)
+                embed.add_field(name='City', value=city)
+                embed.add_field(name='State', value=state)
+                embed.add_field(name='Zip Code', value=zip_code)
 
-            await ctx.author.send(
-                embed=discord.Embed(
-                    title="What is your email?"))
-            reply = (await self.bot.wait_for('message', check=check))
-            email = reply.content
+                confirmation = await ctx.author.send(embed=embed)
 
-            await ctx.author.send(
-                embed=discord.Embed(
-                    title="What is your phone number?"))
-            reply = (await self.bot.wait_for('message', check=check))
-            phone = reply.content
+                def c_check(r, a):
+                    return confirmation.id == r.message.id and a.id == ctx.author.id
 
-            await ctx.author.send(
-                embed=discord.Embed(
-                    title="What is your street address?"))
-            reply = (await self.bot.wait_for('message', check=check))
-            street = reply.content
+                emoji = await self.reaction(ctx.author, confirmation, ("✅", "❌"), 45)
 
-            await ctx.author.send(
-                embed=discord.Embed(
-                    title="What is your city?"))
-            reply = (await self.bot.wait_for('message', check=check))
-            city = reply.content
-
-            await ctx.author.send(
-                embed=discord.Embed(
-                    title="What is your state?"))
-            reply = (await self.bot.wait_for('message', check=check))
-            state = reply.content
-
-            await ctx.author.send(
-                embed=discord.Embed(
-                    title="What is your zip code?"))
-            reply = (await self.bot.wait_for('message', check=check))
-            zip_code = reply.content
-
-            embed = discord.Embed(title='Please resupply your info.')
-            embed.add_field(name='Name', value=f"{f_name} {l_name}", inline=False)
-            embed.add_field(name='Email', value=email, inline=True)
-            embed.add_field(name='Phone', value=phone, inline=True)
-            embed.add_field(name='Street Address', value=street, inline=False)
-            embed.add_field(name='City', value=city)
-            embed.add_field(name='State', value=state)
-            embed.add_field(name='Zip Code', value=zip_code)
-
-            confirmation = await ctx.author.send(embed=embed)
-
-            def c_check(r, a):
-                return confirmation.id == r.message.id and a.id == ctx.author.id
-
-            await confirmation.add_reaction("✅")
-            await confirmation.add_reaction("❌")
-
-            reaction, user = await self.bot.wait_for(
-                'reaction_add', timeout=45, check=c_check)
-
-            if reaction.emoji == "✅":
-                await ctx.author.send(embed=discord.Embed(
-                    title='Your all set return to the channel you started this command in to continue your order!'
-                ))
-                break
-            else:
-                embed = discord.Embed(title='Please resupply your info.')
-                await ctx.author.send(embed=embed)
-
-        await message.edit(embed=discord.Embed(title='LOADING'))
+                if emoji == "✅":
+                    await ctx.author.send(embed=discord.Embed(
+                        title='Your all set return to the channel you started this command in to continue your order!',
+                        color=0xde2939
+                    ))
+                    break
+                else:
+                    embed = discord.Embed(title='Please resupply your info.')
+                    await ctx.author.send(embed=embed)
+        else:
+            f_name = 'jim'
+            l_name = 'bo'
+            email = 'email'
+            phone = '123'
+            street = '24 S. Prospect'
+            city = 'Clarendon Hills'
+            state = 'il'
+            zip_code = '60514'
+        await message.edit(embed=discord.Embed(title='LOADING', color=0xde2939))
 
         customer = Customer(f_name, l_name, email, phone,
                             f"{street},{city},{state},{zip_code}")
@@ -186,7 +167,8 @@ class BotCommands(commands.Cog):
         page = 0
 
         await message.edit(text=ctx.author.mention, embed=discord.Embed(
-            title='LOADING....PLEASE WAIT'
+            title='LOADING....PLEASE WAIT',
+            color=0xde2939
         ))
         await message.add_reaction("⬅️")
         await message.add_reaction("➡️")
@@ -196,6 +178,7 @@ class BotCommands(commands.Cog):
         await message.add_reaction("🥤")
         await message.add_reaction("✅")
         await message.add_reaction("🗒️")
+        await message.add_reaction("❌")
 
         order = Order(store, customer)
         while True:
@@ -247,118 +230,107 @@ class BotCommands(commands.Cog):
                 embed.set_footer(text=f"Page {page + 1} of {len(categories) + 2}")
                 await message.edit(embed=embed)
 
-                done, pending = await asyncio.wait([
-                    self.bot.wait_for('message'),
-                    self.bot.wait_for('reaction_add')
-                ], return_when=asyncio.FIRST_COMPLETED, timeout=1200)
-                if not done:
+                stuff = await self.message_check(message, ctx.author, 600)
+
+                if not stuff:
                     break
                 else:
-                    stuff = done.pop().result()
 
                     if type(stuff) == type(message):
-                        if stuff.channel.id == ctx.channel.id and stuff.author.id == ctx.author.id:
-                            try:
-                                await stuff.delete()
-                                if page != 10:
-                                    if page == 6:
-                                        pizzas = data[categories[page - 1]][int(stuff.content) - 1]['Sizes']
-                                        count = 1
-                                        embed = discord.Embed(
-                                            title='Size Options',
-                                            escription='Reply with the number of the side of your choice')
-                                        sizes = ""
-                                        for pie in pizzas:
-                                            sizes += f"**{count}:** {pie['Name']}, ${pie['Price']}\n"
-                                            count += 1
-                                        embed.add_field(name='_ _', value=sizes)
-                                        options = await ctx.send(embed=embed)
+                        try:
+                            await stuff.delete()
+                            if page != 10:
+                                if page == 6:
+                                    pizzas = data[categories[page - 1]][int(stuff.content) - 1]['Sizes']
+                                    count = 1
+                                    embed = discord.Embed(
+                                        title='Size Options',
+                                        escription='Reply with the number of the side of your choice')
+                                    sizes = ""
+                                    for pie in pizzas:
+                                        sizes += f"**{count}:** {pie['Name']}, ${pie['Price']}\n"
+                                        count += 1
+                                    embed.add_field(name='_ _', value=sizes)
+                                    options = await ctx.send(embed=embed)
 
-                                        def check(m):
-                                            return m.author == ctx.author and m.channel == ctx.channel
+                                    def check(m):
+                                        return m.author == ctx.author and m.channel == ctx.channel
 
-                                        reply = (await self.bot.wait_for('message', check=check))
-                                        choice = reply.content
-                                        await reply.delete()
-                                        await options.delete()
-                                        stuff.content = reply.content
-                                        item = pizzas[int(choice) - 1]
+                                    reply = (await self.bot.wait_for('message', check=check))
+                                    choice = reply.content
+                                    await reply.delete()
+                                    await options.delete()
+                                    stuff.content = reply.content
+                                    item = pizzas[int(choice) - 1]
 
-                                    else:
-                                        item = data[categories[page - 1]][int(stuff.content) - 1]
-
-                                    product = await ctx.send(embed=discord.Embed(
-                                        title=f" Do you want to add {item['Name']} to your order?",
-                                        description=f"**Price:** ${item['Price']}"
-                                    ))
-                                    await product.add_reaction("✅")
-                                    await product.add_reaction("❌")
-
-                                    def r_check(react, author):
-                                        return product.id == react.message.id and author.id == ctx.author.id
-
-                                    reaction, user = await self.bot.wait_for(
-                                        'reaction_add', timeout=45, check=r_check)
-                                    await product.delete()
-                                    if reaction.emoji == "✅":
-                                        order.add_item(item['Code'])
-                                        await ctx.send(embed=discord.Embed(
-                                            title=f"Added {item['Name']} to your order."),
-                                            delete_after=5)
-                                    else:
-                                        await ctx.send('No Item Added', delete_after=5)
                                 else:
-                                    item = order.data['Products'][int(stuff.content)-1]
-                                    product = await ctx.send(embed=discord.Embed(
-                                        title=f" Do you want to remove {item['Name']} from your order?",
-                                        description=f"**Price:** ${item['Price']}"
-                                    ))
-                                    await product.add_reaction("✅")
-                                    await product.add_reaction("❌")
+                                    item = data[categories[page - 1]][int(stuff.content) - 1]
 
-                                    def r_check(react, author):
-                                        return product.id == react.message.id and author.id == ctx.author.id
+                                product = await ctx.send(embed=discord.Embed(
+                                    title=f" Do you want to add {item['Name']} to your order?",
+                                    description=f"**Price:** ${item['Price']}",
+                                    color=0xde2939
+                                ))
 
-                                    reaction, user = await self.bot.wait_for(
-                                        'reaction_add', timeout=45, check=r_check)
-                                    await product.delete()
-                                    if reaction.emoji == "✅":
-                                        order.remove_item(item['Code'])
-                                        await ctx.send(embed=discord.Embed(
-                                            title=f"Removed {item['Name']} from your order."),
-                                            delete_after=5)
-                                    else:
-                                        await ctx.send('No Item Removed')
-                            except KeyError:
-                                await ctx.send('Invalid Item', delete_after=5)
-                            except IndexError:
-                                await ctx.send('Invalid Item', delete_after=5)
-                            except ValueError:
-                                await ctx.send('Invalid Item', delete_after=5)
+                                def r_check(react, author):
+                                    return product.id == react.message.id and author.id == ctx.author.id
+
+                                emoji = await self.reaction(ctx.author, product, ("✅","❌"), 500)
+                                await product.delete()
+                                if emoji == "✅":
+                                    order.add_item(item['Code'])
+                                    await ctx.send(embed=discord.Embed(
+                                        title=f"Added {item['Name']} to your order.", color=0xde2939),
+                                        delete_after=5)
+                                else:
+                                    await ctx.send('No Item Added', delete_after=5)
+                            else:
+                                item = order.data['Products'][int(stuff.content)-1]
+                                product = await ctx.send(embed=discord.Embed(
+                                    title=f" Do you want to remove {item['Name']} from your order?",
+                                    description=f"**Price:** ${item['Price']}",
+                                    color=0xde2939
+                                ))
+
+                                emoji = await self.reaction(ctx.author, product, ("✅","❌"), 500)
+                                await product.delete()
+                                if emoji == "✅":
+                                    order.remove_item(item['Code'])
+                                    await ctx.send(embed=discord.Embed(
+                                        title=f"Removed {item['Name']} from your order.",color=0xde2939),
+                                        delete_after=5)
+                                else:
+                                    await ctx.send('No Item Removed')
+                        except KeyError:
+                            await ctx.send('Invalid Item', delete_after=5)
+                        except IndexError:
+                            await ctx.send('Invalid Item', delete_after=5)
+                        except ValueError:
+                            await ctx.send('Invalid Item', delete_after=5)
 
                     else:
-                        if stuff[0].message.id == message.id and stuff[1].id == ctx.author.id:
-                            if stuff[0].emoji == "⬅️":
-                                page -= 1
-                            elif stuff[0].emoji == "➡️":
-                                page += 1
-                            elif stuff[0].emoji == "🍕":
-                                page = 6
-                            elif stuff[0].emoji == "🍗":
-                                page = 9
-                            elif stuff[0].emoji == "🧁":
-                                page = 2
-                            elif stuff[0].emoji == "🥤":
-                                page = 3
-                            elif stuff[0].emoji == '🗒️':
-                                page = 10
-                            elif stuff[0].emoji == "✅":
-                                break
-                            elif stuff[0].emoji == "❌":
-                                await message.edit(embed=discord.Embed(title='ORDER CREATION CANCELLED'))
-                            else:
-                                print(stuff[0])
-                            await stuff[0].remove(stuff[1])
+                        if stuff[0].emoji == "⬅️":
+                            page -= 1
+                        elif stuff[0].emoji == "➡️":
+                            page += 1
+                        elif stuff[0].emoji == "🍕":
+                            page = 6
+                        elif stuff[0].emoji == "🍗":
+                            page = 9
+                        elif stuff[0].emoji == "🧁":
+                            page = 2
+                        elif stuff[0].emoji == "🥤":
+                            page = 3
+                        elif stuff[0].emoji == '🗒️':
+                            page = 10
+                        elif stuff[0].emoji == "✅":
+                            break
+                        elif stuff[0].emoji == "❌":
+                            await message.edit(embed=discord.Embed(title='ORDER CREATION CANCELLED',color=0xde2939))
+                            return
+                        else:
+                            print(stuff[0])
+                        await stuff[0].remove(stuff[1])
 
             except TimeoutError:
                 await ctx.send("ORDER CREATION TIMED OUT DO d.menu TO RESTART")
@@ -373,33 +345,76 @@ class BotCommands(commands.Cog):
             embed.add_field(name=f"**{count}:** {item['Name']}", value=item['Price'], inline=False)
         instructions = """
                  Please Verify Your Order Info. This will be sent to the address supplied in the first step.
+                 THIS WILL ORDER A REAL PIZZA TO YOUR ADRESS IF YOU ACCEPT!!!!!
                         """
         embed.description = f"Total Cost ${total_cost}+tax{instructions}"
         await message.delete()
         message = await ctx.send(ctx.author.mention, embed=embed)
-        await message.add_reaction("✅")
-        await message.add_reaction("❌")
 
-        def r_check(react, author):
-            return message.id == react.message.id and author.id == ctx.author.id
+        emoji = await self.reaction(ctx.author, message, ("✅", "❌"), 500)
 
-        reaction, user = await self.bot.wait_for(
-            'reaction_add', timeout=45, check=r_check)
-
-        if reaction.emoji == "✅":
-            await message.edit(embed=discord.Embed(title='Placing order please wait....'))
+        if emoji == "✅":
+            await message.edit(embed=discord.Embed(title='Placing order please wait....',color=0xde2939))
             try:
                 data = order.place()
                 print(data)
-                await message.edit(embed=discord.Embed(title='Your Order Has Been Placed'))
+                await message.edit(embed=discord.Embed(title='Your Order Has Been Placed',color=0xde2939))
             except:
                 await message.edit(embed=discord.Embed(
                     title='There May Have Been An Error With Placing Your Oder',
                     description="""Please enter your phone number on the tracking site
-                                or call the Domino's you ordered from to confirm your order"""
+                                or call the Domino's you ordered from to confirm your order""",
+                    color=0xde2939
                 ))
         else:
-            await message.edit(embed=discord.Embed(title='Order Cancelled!'))
+            await message.edit(embed=discord.Embed(title='Order Cancelled!',color=0xde2939))
+
+
+    async def answer(self, ctx, question, timeout = 0):
+        return await asyncio.wait_for(self._answer(ctx, question), timeout = timeout)
+
+    async def _answer(self, ctx, question):
+        user = ctx.author
+        await user.send(
+            embed=discord.Embed(
+                title=question))
+        while True:
+            reply = (await self.bot.wait_for('message'))
+            if reply.channel.id == user.dm_channel.id and reply.author.id == user.id:
+                return reply.content
+
+    async def reaction(self, author, message, emojis, timeout):
+        return await asyncio.wait_for(self._reaction(author, message, emojis), timeout=timeout)
+
+    async def _reaction(self, author, message, emojis):
+        for emoji in emojis:
+            await message.add_reaction(emoji)
+        while True:
+            reaction, user = await self.bot.wait_for('reaction_add')
+            if reaction.message.id == message.id and user.id == author.id:
+                return reaction.emoji
+
+    async def message_check(self, message, user, timeout):
+        return await asyncio.wait_for(self._message_check(message, user), timeout=timeout)
+
+    async def _message_check(self, message, user):
+        while True:
+            done, pending = await asyncio.wait([
+                self.bot.wait_for('message'),
+                self.bot.wait_for('reaction_add')
+            ], return_when=asyncio.FIRST_COMPLETED)
+            if not done:
+                break
+            else:
+                stuff = done.pop().result()
+
+                if type(stuff) == type(message):
+                    if stuff.channel.id == message.channel.id and stuff.author.id == user.id:
+                        return stuff
+                else:
+                    if stuff[0].message.id == message.id and stuff[1].id == user.id:
+                        return stuff
+
 
 def setup(bot):
     """Imports the cog, this should also be set to the name of the class"""
